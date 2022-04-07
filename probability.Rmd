@@ -1,0 +1,146 @@
+---
+title: "Fenómeno Hot Hand"
+author: "Vane Figueroa Robles"
+date: "15/3/2022"
+output:
+  
+  
+  html_document: 
+   toc: true
+   toc_float: true
+   theme: "journal"
+  pdf_document: default
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+##Asignamos directorio de trabajo. 
+setwd("C:/Users/Vane/Documents/R basico")
+```
+
+```{r, echo=FALSE}
+options(repos = list(CRAN="http://cran.rstudio.com/"))
+```
+En este proyecto, se estudia el fenómeno "Hot Hand", que se atribuye a los jugadores de baskteball por su habilidad de anotar varias canastas seguidas. A partir del [estudio de Gilovich, Vallone  & Tversky](http://www.sciencedirect.com/science/article/pii/0010028585900106), se conoce evidencia que refuta esta creencia y demostra que los disparos sucesivos son eventos independientes. Hoy en día, este fenómeno sigue siendo una contraversia. 
+
+No se espera resolver esta controversia hoy. Sin embargo, se aplicar un enfoque para responder preguntas como esta teniendo en cuenta  conceptos de la toería de probabilidades de eventos independientes, planteamiento de hipótesis y simulación procesos aleatorios.  
+
+```{r load-packages, include=F, warning=FALSE}
+library("dplyr")
+# Cargamos la librería `dplyr`que ofrece funciones básicas para la manipulación de datos:`filter()`,`arrange()`,`select()`,`distinct()`,`mutate()`,`summarise()` y `sample_n()`
+library("ggplot2")
+#Paquete utilizado para crear gráficos y tablas
+library("statsr")
+#Paquete con la función para el cálculo de rachas. 
+#statsr::calc_streak
+# Data set Kobe_basket
+```
+# Investigación
+
+## Interrogantes
+Se desea evaluar si es probable que la habilidad de mano caliente de los jugadores profesionales que se los atribuye a partir de sus desempeños en los juegos. Hay dos posibles explicaciones de lo que podría estar pasando y estas son nuestras dos afirmaciones contrapuestas. Uno, no existe tal fenómeno, los lanzamientos son independientes. Esta primera afirmación es nuestra hipótesis nula. Dos, algo está pasando, los lanzamientos no son independientes, y esta es la hipótesis alternativa de nuestra investigación. 
+
+
+## Datos
+Se empleo los datos disponibles del desempeño del jugador profesional Kobe Bryant de los Lakers de Los Ángeles ante los Orlando Magic en el 2009. Las finales de la NBA le valieron el título de *Jugador Más Valioso* y muchos espectadores expresaron que parecía mostrar una mano ardiente.
+
+```{r data, echo=F}
+data("kobe_basket")
+```
+##### Observaciones y variables
+
+Echamos un vistazo a las seis primeras filas de nuestros datos
+
+```{r primeras filas, echo=F}
+head(kobe_basket)
+```
+
+Identificar el tipo de variables con las que se está trabajando es el primer paso del proceso de análisis de datos.
+
+```{r tipo de variables, echo=F}
+str(kobe_basket)
+``` 
+Tenemos 133 observaciones y 6 variables, donde cada fila registra un tiro realizado por Kobe Bryant. La variable categótica `shot` en este conjunto de datos indica si el tiro fue un hit es decir un acierto (`H`) o un mis, un fallo (`M`). Sólo vamos a trabajar con esta variable, ya que nuestro interés se centra en evaluar la secuencia de aciertos y fallas. 
+
+Observando los valores de la vairable Shot, es difícil determinar si parece o no que Kobe estaba disparando con una mano caliente. Una forma en que podemos enfocar esto, es considerando la creencia de que los tiradores de mano caliente tienden a continuar rachas de tiros.
+
+Definimos la duración de una racha de tiros como el *número de aciertos consecutivos hasta que se produce un fallo*.
+Por ejemplo, en el Juego 1, Kobe tuvo la siguiente secuencia de aciertos y errores de sus nueve intentos de tiro en el primer cuarto:
+\[ \textrm{H M | M | H H M | M | M | M} \]
+Dentro de los nueve intentos de tiro, hay seis rachas, las cuales están separadas por un"|".Una racha de 1 significa un acierto seguido de un fallo. Las longitudes de este ejemplo son uno, cero, dos, cero, cero, cero (en orden de ocurrencia).
+Contar las longitudes de las rachas manualmente para los 133 disparos sería tedioso, para ello, es posible usar la función personalizada `calc_streak` para calcular las rachas  y almacenamos los resultados en un nuevo data frame llamado `kobe_streak` como la variable `length`. Note que esta nueva variable es una variable númerica discreta. 
+```{r calc-streak-kobe, echo=F}
+kobe_rachas <- calc_streak(kobe_basket$shot)
+```
+
+```{r rachas Kobe, echo=F}
+str(kobe_rachas)
+```
+## Eventos dependientes e independientes
+
+La teoría de la probabilidad, nos dice que dos eventos son independientes, si el resultado de un primer evento no afecta el resultado del segundo. Si cada tiro que hace un jugador es un proceso independiente, haber anotado o fallado su primer tiro no afectará la probabilidad de que falle o acierte su segundo tiro. En cambio, un tirador con buena mano tendrá tiros que *no* son independientes de uno otro. Específicamente, si el jugador hace su primer tiro, el modelo de mano caliente dice que tendrá una *mayor* probabilidad de anotar en su segundo tiro.
+
+Supongamos por un momento que el modelo de mano caliente es válido para Kobe, es decir nuestra hipótesis alternativa es verdadera. Si tenemos en cuenta sus aciertos a lo larga de su carrera, el 45% de las veces acierta, es decir que su probabilidad de éxito en su primer tiro es de 0.45.
+\[ P(\textrm{shot 1 = H}) = 0.45 \]
+Si hace el primer tiro y tiene buena mano (*no* tiros independientes), entonces
+la probabilidad de que haga su segundo tiro subiría, digamos, al 60%.
+
+\[ P(\textrm{shot 2 = H} \, | \, \textrm{shot 1 = H}) = 0.60 \]
+Como resultado de estas mayores probabilidades, se esperaría que Kobe tuviera rachas más largas. 
+
+En cambio, bajo la hipótesis nula cada tiro es independiente, Kobe *no* tiene mano caliente. Si acierta su primer tiro,la probabilidad de que haga el segundo sigue siendo 0,45. Si los tiros de Kobe son independientes, entonces tendría la misma probabilidad de acertar todos los tiros independientemente de sus tiros anteriores.
+
+\[ P(\textrm{shot 2 = H} \, | \, \textrm{shot 1 = H}) = 0.45 \]
+
+## Rachas de Kobe 
+
+Observamos la distribución de la longitud de las rachas y medidas resúmenes.
+```{r plot-rachas-kobe, echo=F}
+ggplot(data = kobe_rachas, aes(x = length)) +
+  geom_histogram(binwidth = 1)
+
+```
+
+```{r estadisticas de rachas kobe, echo=F}
+summary(kobe_rachas)
+```
+La distribución de la longitud de las rachas de Kobe de la final de la NBA de 2009, es unimodal y sesgada a la derecha.La longitud típica de una racha es 0 ya que la mediana de la distribución es 0.Encontramos la mitad de los datos ubicados en un acierto. La racha más larga es de 4 aciertos consecutivos.Podemos decir que, Kobe tuvo algunas rachas largas de aiertos consecutivos, pero no podemos con esto, apoyar la creencia del fenómeno de manos calientes. 
+Si los resultados de las simulaciones se parecen a los datos de los lanzamientos de Kobe, entonces decidimos que los lanzamientos son independientes. En otras palabras, concluimos que los datos proporcionan evidencia convincente de independencia en las anotaciones.
+
+## Simulación de lanzamientos independientes
+Necesitamos generar un espacio muestral de un proceso aleatorio de eventos independientes, para ello vamos a realizar una simulación para una muestra de 133 tiros. Nombramos `sim_basket`a la secuencia  resultante de la esta simulación.
+```{r simulación tiros indpendientes, echo=F}
+resultados <- c("H", "M")
+sim_basket <- sample(resultados, size = 133, replace = TRUE, prob = c(0.45, 0.55))
+```
+
+Para realizar la comparanción de los resultado de Kobe Bryant con el tirador independiente, calcumos la longitus de las rachas simuladas.
+
+```{r sim-longitud-rachas, echo=F}
+sim_rachas <- calc_streak(sim_basket)
+```
+
+Ambos conjuntos de datos representan los resultados de 133 intentos de lanzamiento, cada uno con el mismo procentaje de aciertos del 45%. 
+## Lanzador independiente
+Hacemos un gráfico de la distribución de longitudes de rachas simuladas del tirador independiente y obtenemos estadísticas de muestra.
+```{r plot-sim-rachas, echo=F}
+ggplot(data = sim_rachas, aes(x = length)) +
+  geom_histogram(binwidth = 1)
+  
+```
+
+```{r estadisticas de rachas independientes, echo=F}
+summary(sim_rachas)
+```
+
+## Conclusiones
+
+La distribución de la longitud de las rachas simuladas es unimodal y sesgada a la derecha.La longitud típica de una racha es 0. El rango intercuartílico es de 1. La racha más larga para este tiador independiente simulado es de 5. 
+Los datos de ambos modelos reflejan distribuciones similares, es parece no haber evidencia de que los lanzamientos de Kobe cumplan con un fenómeno de mano caliente. Podemos decir que es más probable que exista independencia en los lanzamientos. 
+Por último, se considera necesario remarcar que no se emplearon herramientas de inferencia estadística que nos permitan tomar los resultados que obtenemos de a partir de los datos de Kobe y la expandirlos a la población en general.El siguiente paso natural sería entonces realizar una prueba de hipótesis.
